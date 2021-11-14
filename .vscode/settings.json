@@ -3,6 +3,8 @@
     "files.associations": {
         "vector": "cpp",
         "istream": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "initializer_list": "cpp",
+        "iterator_base": "cpp"
     }
 }

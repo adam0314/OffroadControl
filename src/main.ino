@@ -1,5 +1,5 @@
 #include <LiquidCrystal.h>
-#include "hubMsg.hpp"
+#include "hubMessages.hpp"
 #include <ArduinoSTL.h>
 
 #define btnRIGHT  0
@@ -12,22 +12,11 @@
 #define hm10HubBt Serial1
 #define hc05PhoneBt Serial2
 
-int readLcdButtons() {
-    int adcKeyIn = analogRead(0);
-    if (adcKeyIn > 1000) return btnNONE;
-    if (adcKeyIn < 60)   return btnRIGHT;
-    if (adcKeyIn < 200)  return btnUP;
-    if (adcKeyIn < 400)  return btnDOWN;
-    if (adcKeyIn < 600)  return btnLEFT;
-    if (adcKeyIn < 800)  return btnSELECT;
-    return btnNONE;
-}
-
 void printHex8(uint8_t *data, uint8_t length) // prints 8-bit data in hex with leading zeroes
 {
       char tmp[16];
         for (int i=0; i<length; i++) { 
-          sprintf(tmp, "0x%.2X", data[i]); 
+          sprintf(tmp, "%.2X", data[i]); 
           Serial.print(tmp); Serial.print(" ");
         }
 }
@@ -41,6 +30,7 @@ void printHex8(uint8_t data) // prints 8-bit data in hex with leading zeroes
 
 int ledPin = 22;
 int joyBtnPin = 45;
+int hm10ConnPin = 28;
 byte joyBtnStatePrev;
 bool joyControl = false;
 enum CarState {TURNR, TURNL, STRAIGHT};
@@ -56,6 +46,7 @@ void setup()
     hc05PhoneBt.begin(9600); // hc05
     pinMode(ledPin, OUTPUT);
     pinMode(joyBtnPin, INPUT_PULLUP);
+    pinMode(hm10ConnPin, INPUT);
     joyBtnStatePrev = digitalRead(joyBtnPin);
     carStatePrev = STRAIGHT;
     Serial.println("Setup done");
@@ -107,14 +98,24 @@ void loop()
 
     if (hm10HubBt.available())
     {
-        // TODO: Use vector, get first hex and put this many bytes into vector instead of while
+        byte firstByte = hm10HubBt.read();
 
-        Serial.println("Data from HM10:");
-        while (hm10HubBt.available())
+        if (firstByte == 0x4F) // AT command message starting with char 'O' (like OK-CONN)
         {
-            printHex8(hm10HubBt.read());
+            hm10HubBt.readBytesUntil(0x0A, buffer, 32); // Throw this away
         }
-        Serial.println();
+        else // Assuming no msgs with length 4F come from Lego Hub, and all AT msgs start with 'O'
+        {
+            Serial.println("Data from Hub on HM10:");
+            buffer[0] = firstByte;
+            for (int i = 1; i < firstByte; i++)
+            {
+                buffer[i] = hm10HubBt.read();
+                delay(10);
+            }
+            printHex8(buffer, firstByte);
+            Serial.println();
+        }
     }
 
     // Joystick
@@ -166,7 +167,7 @@ void loop()
     byte joyBtnState = digitalRead(joyBtnPin);
     if (joyBtnState == LOW && joyBtnStatePrev == HIGH)
     {
-        /Serial.println("joy button pressed bitch");
+        //Serial.println("joy button pressed bitch");
         joyControl = !joyControl;
         if (joyControl)
         {
@@ -182,33 +183,21 @@ void loop()
 
 void carGoForward()
 {
+    //TODO: Add port sync -easy. Command 06 00 61 (virtual IO) 01 (create new) 00 01 (port IDs - motors A and B)
+    // This is to remove the need to send two commands at once
     Serial.println("car go forward fn");
-    byte command1[] =
-    {
-        0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0xB0, 0x5A, 0x00
-    }; // 90% forward motor A
-    byte command2[] =
-    {
-        0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0xB0, 0x5A, 0x00
-    }; // 90% forward motor B
-    hm10HubBt.write(command1, sizeof(command1));
-    delay(100);
-    hm10HubBt.write(command2, sizeof(command2));
+    byte size = HubMessageMotorSetSpeed(0x10, 0, 80, true, 90, 0).parseIntoBuf(buffer);
+    // printHex8(buffer, size);
+    // Serial.println(size);
+    hm10HubBt.write(buffer, size * sizeof(buffer[0]));
 }
 
 void carGoBack()
 {
-    byte command1[] =
-    {
-        0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0x50, 0x5A, 0x00
-    }; // 90% backwards motor A
-    byte command2[] =
-    {
-        0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0x50, 0x5A, 0x00
-    }; // 90% backwards motor B
-    hm10HubBt.write(command1, sizeof(command1));
-    delay(100);
-    hm10HubBt.write(command2, sizeof(command2));
+    byte size = HubMessageMotorSetSpeed(0x10, 0, 80, false, 90, 0).parseIntoBuf(buffer);
+    // printHex8(buffer, size);
+    // Serial.println(size);
+    hm10HubBt.write(buffer, size * sizeof(buffer[0]));
 }
 
 void carStop()
