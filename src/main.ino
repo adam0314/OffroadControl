@@ -39,19 +39,18 @@ void printHex8(uint8_t data) // prints 8-bit data in hex with leading zeroes
     Serial.print(tmp); Serial.print(" ");
 }
 
-LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 int ledPin = 22;
 int joyBtnPin = 45;
 byte joyBtnStatePrev;
 bool joyControl = false;
 enum CarState {TURNR, TURNL, STRAIGHT};
 CarState carStatePrev;
+byte buffer[128] = {0x00};
 
 bool analogBtnRead[5] = {false, false, false, false, false};
 
 void setup()
 {
-    setupLcd();
     Serial.begin(115200);
     hm10HubBt.begin(115200); // hm10
     hc05PhoneBt.begin(9600); // hc05
@@ -62,86 +61,48 @@ void setup()
     Serial.println("Setup done");
 }
 
-void setupLcd()
-{
-    lcd.begin(16, 2);
-    lcd.setCursor(0, 0);
-    lcd.print("amogus");
-}
-
 void loop()
 {
     if (hc05PhoneBt.available())
     {
-        std::vector<byte> v;
-        while (hc05PhoneBt.available())
+        byte size = hc05PhoneBt.read();
+        delay(10);
+        //Serial.println(size);
+        if (size == 0x00)
         {
-            byte readHex = hc05PhoneBt.read();
-            v.push_back(readHex);
-            //printHex8(readHex);
+            //Serial.println("mom i made 00xd");
+            byte carCommand = hc05PhoneBt.read();
+            //Serial.println(carCommand);
+            switch (carCommand)
+            {
+                case 0x01:
+                    carGoForward();
+                    break;
+                case 0x02:
+                    carGoBack();
+                    break;
+                case 0xFF:
+                    carTurnOff();
+                    break;
+                case 0x00:
+                    carStop();
+                    break;                
+                default:
+                    //Serial.println("carCommand value: ");
+                    //Serial.println(carCommand);
+                    break;
+            }
         }
-        
-        hm10HubBt.write(&v[0], v.size() * sizeof(v[0]));
-    }
-
-    if (readLcdButtons() == btnSELECT)
-    {
-        //Serial.println("Select button read");
-        byte command[] = {0x04, 0x00, 0x02, 0x01}; // turn off Technic Hub
-        hm10HubBt.write(command, sizeof(command));
-    }
-
-    if (readLcdButtons() == btnUP)
-    {
-        byte command1[] =
+        else if (size > 0)
         {
-            0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0xB0, 0x5A, 0x00
-        }; // 90% forward motor A
-        byte command2[] =
-        {
-            0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0xB0, 0x5A, 0x00
-        }; // 90% forward motor B
-        hm10HubBt.write(command1, sizeof(command1));
-        delay(10);
-        hm10HubBt.write(command2, sizeof(command2));
-    }
-
-    if (readLcdButtons() == btnDOWN)
-    {
-        byte command1[] =
-        {
-            0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0x50, 0x5A, 0x00
-        }; // 90% backwards motor A
-        byte command2[] =
-        {
-            0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0x50, 0x5A, 0x00
-        }; // 90% backwards motor B
-        hm10HubBt.write(command1, sizeof(command1));
-        delay(10);
-        hm10HubBt.write(command2, sizeof(command2));
-    }
-
-    if (readLcdButtons() == btnRIGHT)
-    {
-        //Serial.println("Right button read");
-        byte command[] = {0x05, 0x00, 0x01, 0x01, 0x05}; // ask for name
-        hm10HubBt.write(command, sizeof(command));
-    }
-
-    if (readLcdButtons() == btnLEFT)
-    {
-        //Serial.println("Left button read, stop");
-        byte command1[] =
-        {
-            0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0x00, 0x64, 0x00
-        }; // stop A
-        byte command2[] =
-        {
-            0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0x00, 0x64, 0x00
-        }; // stop B
-        hm10HubBt.write(command1, sizeof(command1));
-        delay(10);
-        hm10HubBt.write(command2, sizeof(command2));
+            buffer[0] = size;
+            for (int i = 1; i < size; i++)
+            {
+                buffer[i] = hc05PhoneBt.read();
+                delay(10);
+            }            
+            hm10HubBt.write(buffer, size * sizeof(buffer[0]));
+        }
     }
 
     if (hm10HubBt.available())
@@ -159,10 +120,6 @@ void loop()
     // Joystick
 
     int vrx = analogRead(A15);
-    lcd.setCursor(0, 1);
-    char s[5] = "0000";
-    sprintf(s, "%04d", vrx);
-    lcd.print(s);
 
     // TODO: in program set the def. value of C motor degs and then control it here to turn the motor
     // This will be painful
@@ -204,14 +161,12 @@ void loop()
         // Right now, there is a flood of turn signals (and straight signal as well)
     }
 
-
-
-    /////
+    // Toggling control: automatic or joystick
 
     byte joyBtnState = digitalRead(joyBtnPin);
     if (joyBtnState == LOW && joyBtnStatePrev == HIGH)
     {
-        Serial.println("joy button pressed bitch");
+        /Serial.println("joy button pressed bitch");
         joyControl = !joyControl;
         if (joyControl)
         {
@@ -225,9 +180,54 @@ void loop()
     joyBtnStatePrev = digitalRead(joyBtnPin);
 }
 
-void lcdClear(unsigned int lineNo)
+void carGoForward()
 {
-    if (lineNo > 1) return;
-    lcd.setCursor(0, lineNo);
-    lcd.print("                ");
+    Serial.println("car go forward fn");
+    byte command1[] =
+    {
+        0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0xB0, 0x5A, 0x00
+    }; // 90% forward motor A
+    byte command2[] =
+    {
+        0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0xB0, 0x5A, 0x00
+    }; // 90% forward motor B
+    hm10HubBt.write(command1, sizeof(command1));
+    delay(100);
+    hm10HubBt.write(command2, sizeof(command2));
+}
+
+void carGoBack()
+{
+    byte command1[] =
+    {
+        0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0x50, 0x5A, 0x00
+    }; // 90% backwards motor A
+    byte command2[] =
+    {
+        0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0x50, 0x5A, 0x00
+    }; // 90% backwards motor B
+    hm10HubBt.write(command1, sizeof(command1));
+    delay(100);
+    hm10HubBt.write(command2, sizeof(command2));
+}
+
+void carStop()
+{
+    byte command1[] =
+    {
+        0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0x00, 0x64, 0x00
+    }; // stop A
+    byte command2[] =
+    {
+        0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0x00, 0x64, 0x00
+    }; // stop B
+    hm10HubBt.write(command1, sizeof(command1));
+    delay(100);
+    hm10HubBt.write(command2, sizeof(command2));
+}
+
+void carTurnOff()
+{
+    byte command[] = {0x04, 0x00, 0x02, 0x01}; // turn off Technic Hub
+    hm10HubBt.write(command, sizeof(command));
 }
