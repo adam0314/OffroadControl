@@ -1,0 +1,8 @@
+{
+    "C_Cpp.dimInactiveRegions": true,
+    "files.associations": {
+        "vector": "cpp",
+        "istream": "cpp",
+        "string": "cpp"
+    }
+}
