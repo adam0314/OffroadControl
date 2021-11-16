@@ -4,8 +4,10 @@
 enum MessageType
 {
     MOTOR_START_SPEED,
+    MOTOR_START_SPEED_FOR_TIME,
     MOTOR_GOTO_ABS,
-    MOTOR_BRAKE,
+    MOTOR_STOP,
+    MOTOR_START_DEG,
     HUB_TURN_OFF,
     PORT_SYNC
 };
@@ -29,12 +31,26 @@ class HubMessageMotorSetSpeed : HubMessage
         byte _startComplInfo;
         byte _subCommand;
         byte _speed;
-        bool _goForward;
+        uint16_t _time;
         byte _maxPower;
         byte _useProfile;
     public:
         HubMessageMotorSetSpeed();
-        HubMessageMotorSetSpeed(byte, byte, byte, bool, byte, byte);
+        HubMessageMotorSetSpeed(byte);
+        HubMessageMotorSetSpeed(byte, uint16_t);
+        HubMessageMotorSetSpeed(byte, byte, byte, byte, byte);
+        byte parseIntoBuf(byte*);
+};
+
+class HubMessageMotorStop : HubMessage
+{
+    private:
+        byte _portId;
+        byte _startComplInfo;
+        byte _subCommand;
+    public:
+        HubMessageMotorStop();
+        HubMessageMotorStop(byte, byte);
         byte parseIntoBuf(byte*);
 };
 

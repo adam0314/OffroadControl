@@ -2,13 +2,6 @@
 #include "hubMessages.hpp"
 #include <ArduinoSTL.h>
 
-#define btnRIGHT  0
-#define btnUP     1
-#define btnDOWN   2
-#define btnLEFT   3
-#define btnSELECT 4
-#define btnNONE   5
-
 #define hm10HubBt Serial1
 #define hc05PhoneBt Serial2
 
@@ -37,7 +30,19 @@ enum CarState {TURNR, TURNL, STRAIGHT};
 CarState carStatePrev;
 byte buffer[128] = {0x00};
 
-bool analogBtnRead[5] = {false, false, false, false, false};
+byte commandTurnR[14] = 
+{
+    0x0E, 0x00, 0x81, 0x02, 0x10, 0x0B, 0x4B, 0x00, 0x00, 0x00, 0x20, 0x40, 0x7E, 0x00
+};
+byte commandTurnL[14] = 
+{
+    0x0E, 0x00, 0x81, 0x02, 0x10, 0x0B, 0x4B, 0x00, 0x00, 0x00, 0xD0, 0x40, 0x7E, 0x00
+};
+
+bool turnDirLeft;
+
+CarState carState;
+int vrx = 512;
 
 void setup()
 {
@@ -49,6 +54,31 @@ void setup()
     pinMode(hm10ConnPin, INPUT);
     joyBtnStatePrev = digitalRead(joyBtnPin);
     carStatePrev = STRAIGHT;
+
+    if (!isHubConnected())
+    {
+        while (!isHubConnected())
+        {
+            Serial.println("No LEGO connection to HM-10");
+            Serial.println("Retrying in 3 seconds");
+            delay(3000);
+        }
+        Serial.println("LEGO connected");
+
+        // Assuming virtual port is not assigned
+
+        byte command[6] = {0x06, 0x00, 0x61, 0x01, 0x00, 0x01};
+        hm10HubBt.write(command, sizeof(command));
+        delay(500);
+    }
+    else //TODO: Change this into commands and set some acknowledgment from LEGO
+    {
+        Serial.println("LEGO already connected");
+        byte command[6] = {0x06, 0x00, 0x61, 0x01, 0x00, 0x01};
+        hm10HubBt.write(command, sizeof(command));
+        // TODO: Add checking if virtual port is already defined
+        delay(500);
+    }
     Serial.println("Setup done");
 }
 
@@ -58,12 +88,9 @@ void loop()
     {
         byte size = hc05PhoneBt.read();
         delay(10);
-        //Serial.println(size);
         if (size == 0x00)
         {
-            //Serial.println("mom i made 00xd");
             byte carCommand = hc05PhoneBt.read();
-            //Serial.println(carCommand);
             switch (carCommand)
             {
                 case 0x01:
@@ -72,6 +99,9 @@ void loop()
                 case 0x02:
                     carGoBack();
                     break;
+                case 0x03:
+                    test1();
+                    break;
                 case 0xFF:
                     carTurnOff();
                     break;
@@ -79,8 +109,6 @@ void loop()
                     carStop();
                     break;                
                 default:
-                    //Serial.println("carCommand value: ");
-                    //Serial.println(carCommand);
                     break;
             }
         }
@@ -96,54 +124,24 @@ void loop()
         }
     }
 
-    if (hm10HubBt.available())
-    {
-        byte firstByte = hm10HubBt.read();
-
-        if (firstByte == 0x4F) // AT command message starting with char 'O' (like OK-CONN)
-        {
-            hm10HubBt.readBytesUntil(0x0A, buffer, 32); // Throw this away
-        }
-        else // Assuming no msgs with length 4F come from Lego Hub, and all AT msgs start with 'O'
-        {
-            Serial.println("Data from Hub on HM10:");
-            buffer[0] = firstByte;
-            for (int i = 1; i < firstByte; i++)
-            {
-                buffer[i] = hm10HubBt.read();
-                delay(10);
-            }
-            printHex8(buffer, firstByte);
-            Serial.println();
-        }
-    }
+    checkAndReadHm10();
 
     // Joystick
-
-    int vrx = analogRead(A15);
 
     // TODO: in program set the def. value of C motor degs and then control it here to turn the motor
     // This will be painful
 
+    vrx = analogRead(A15);
+
     if (joyControl)
     {
-        byte command[14] = 
-        {
-            0x0E, 0x00, 0x81, 0x02, 0x10, 0x0D, 0x00, 0x00, 0x00, 0x00, 0x20, 0x50, 0x00, 0x00
-        };
-        CarState carState;
         // Control car with joystick x axis
         if (vrx < 318)
         {
-            command[6] = 0xFF;
-            command[7] = 0xFF;
-            command[8] = 0xFF;
-            command[9] = 0xFE;
             carState = TURNL;
         }
         else if (vrx > 718)
         {
-            command[9] = 0x02;
             carState = TURNR;
         }
         else
@@ -153,13 +151,37 @@ void loop()
 
         if (carState != carStatePrev)
         {
-            carStatePrev = carState;
-            hm10HubBt.write(command, sizeof(command));
-            delay(10);
-        }        
+            // Something has changed
+            switch (carStatePrev)
+            {
+                case STRAIGHT:
+                    turnDirLeft = (carState == TURNL);
+                    carStatePrev = carState;
+                    break;
+                case TURNL:
+                    turnDirLeft = false; // always turning right from there
+                    carStatePrev = STRAIGHT;
+                    break;
+                case TURNR:
+                    turnDirLeft = true; // always turning right from there
+                    carStatePrev = STRAIGHT;                  
+                    break;
+                default:
+                    break;
+            }
 
-        // TODO: Add a state machine to only turn the car when needed. Maybe 3 states? (TurningL, TurningR, Straight)
-        // Right now, there is a flood of turn signals (and straight signal as well)
+            if (turnDirLeft)
+            {
+                hm10HubBt.write(commandTurnL, sizeof(commandTurnL));
+            }
+            else
+            {
+                hm10HubBt.write(commandTurnR, sizeof(commandTurnR));
+            }
+
+            byte size = HubMessageMotorSetSpeed(100).parseIntoBuf(buffer);
+            hm10HubBt.write(buffer, size * sizeof(buffer[0]));
+        }
     }
 
     // Toggling control: automatic or joystick
@@ -181,42 +203,68 @@ void loop()
     joyBtnStatePrev = digitalRead(joyBtnPin);
 }
 
+// End of loop
+
+// HM10 communication inbound
+
+bool isHubConnected()
+{
+    return digitalRead(hm10ConnPin) == HIGH;
+}
+
+void checkAndReadHm10()
+{
+    if (hm10HubBt.available())
+    {
+        byte firstByte = hm10HubBt.read();
+
+        if (firstByte == 0x4F) // AT command message starting with char 'O' (like OK-CONN)
+        {
+            hm10HubBt.readBytesUntil(0x0A, buffer, 32); // Throw this away
+        }
+        else // Assuming no msgs with length 4F come from Lego Hub, and all AT msgs start with 'O'
+        {
+            Serial.println("Data from Hub on HM10:");
+            buffer[0] = firstByte;
+            for (int i = 1; i < firstByte; i++)
+            {
+                buffer[i] = hm10HubBt.read();
+                delay(10);
+            }
+            printHex8(buffer, firstByte);
+            Serial.println();
+        }
+    }
+}
+
+// Car moves
+
 void carGoForward()
 {
-    //TODO: Add port sync -easy. Command 06 00 61 (virtual IO) 01 (create new) 00 01 (port IDs - motors A and B)
-    // This is to remove the need to send two commands at once
-    Serial.println("car go forward fn");
-    byte size = HubMessageMotorSetSpeed(0x10, 0, 80, true, 90, 0).parseIntoBuf(buffer);
-    // printHex8(buffer, size);
-    // Serial.println(size);
+    byte size = HubMessageMotorSetSpeed(100).parseIntoBuf(buffer);
     hm10HubBt.write(buffer, size * sizeof(buffer[0]));
 }
 
 void carGoBack()
 {
-    byte size = HubMessageMotorSetSpeed(0x10, 0, 80, false, 90, 0).parseIntoBuf(buffer);
-    // printHex8(buffer, size);
-    // Serial.println(size);
+    byte size = HubMessageMotorSetSpeed(-100).parseIntoBuf(buffer);
     hm10HubBt.write(buffer, size * sizeof(buffer[0]));
 }
 
 void carStop()
 {
-    byte command1[] =
-    {
-        0x09, 0x00, 0x81, 0x00, 0x10, 0x07, 0x00, 0x64, 0x00
-    }; // stop A
-    byte command2[] =
-    {
-        0x09, 0x00, 0x81, 0x01, 0x10, 0x07, 0x00, 0x64, 0x00
-    }; // stop B
-    hm10HubBt.write(command1, sizeof(command1));
-    delay(100);
-    hm10HubBt.write(command2, sizeof(command2));
+    byte size = HubMessageMotorStop().parseIntoBuf(buffer);
+    hm10HubBt.write(buffer, size * sizeof(buffer[0]));
 }
 
 void carTurnOff()
 {
     byte command[] = {0x04, 0x00, 0x02, 0x01}; // turn off Technic Hub
     hm10HubBt.write(command, sizeof(command));
+}
+
+void test1()
+{
+    byte size = HubMessageMotorSetSpeed(100, 5000).parseIntoBuf(buffer); // Drive forward at 100% speed for 5 s (5000 ms)
+    hm10HubBt.write(buffer, size * sizeof(buffer[0]));
 }
