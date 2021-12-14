@@ -23,6 +23,7 @@ class HubMessage
         HubMessage(MessageType, byte, byte);
     public:
         virtual byte parseIntoBuf(byte*); //returns message length
+        virtual ~HubMessage() = default;
 };
 
 class HubMessageMotorStartSpeed : public HubMessage
