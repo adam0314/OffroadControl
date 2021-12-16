@@ -1,7 +1,7 @@
 #include <HCSR04.h>
-#include <hm10HubBt.hpp>
-#include <hubMessages.hpp>
-#include <car.hpp>
+#include "hm10.hpp"
+#include "hubMsg.hpp"
+#include "car.hpp"
 
 #define hm10HubBt Serial1
 #define hc05PhoneBt Serial2
@@ -15,96 +15,21 @@ int micAnalogPin = A15;
 int micDigitalPin = 50;
 bool sensorClose = false;
 bool sensorClosePrev = false;
-enum CarState {TURNR, TURNL, STRAIGHT};
 byte buffer[128] = {0x00};
-Hm10 hm10;
+
 Car car;
-
-HubMessageMotorStartDeg commandTurnR = HubMessageMotorStartDeg(75, 30);
-HubMessageMotorStartDeg commandTurnL = HubMessageMotorStartDeg(75, -30);
-HubMessageMotorGotoAbs commandGoto0 = HubMessageMotorGotoAbs();
-
-CarState carState;
-
 UltraSonicDistanceSensor distanceSensor(trigPin, echoPin);
 
-void carGoForward()
-{
-    // auto msg = new HubMessageMotorStartSpeed(100);
-    // hm10.msgOutEnqueue(msg);
-    car.send();
-
-    //car.send();
-}
-
-void carGoBack()
-{
-    byte size = HubMessageMotorStartSpeed(-100).parseIntoBuf(buffer);
-    hm10HubBt.write(buffer, size * sizeof(buffer[0]));
-}
-
-void carStop()
-{
-    byte size = HubMessageMotorStop().parseIntoBuf(buffer);
-    hm10HubBt.write(buffer, size * sizeof(buffer[0]));
-}
-
-void carTurnOff()
-{
-    byte command[] = {0x04, 0x00, 0x02, 0x01}; // turn off Technic Hub
-    hm10HubBt.write(command, sizeof(command));
-}
-
-void carBackUp()
-{
-    byte size = HubMessageMotorStartSpeed(-100, 2000).parseIntoBuf(buffer); // Drive backwards at 100% speed for 2 s (2000 ms)
-    hm10HubBt.write(buffer, size * sizeof(buffer[0]));
-}
-
-void carTurnRight()
-{
-    switch (carState)
-    {
-        case TURNL:
-            //writeMsgToHm10(commandGoto0);
-            carState = STRAIGHT;
-            break;
-        case STRAIGHT:
-            //writeMsgToHm10(commandTurnR);
-            carState = TURNR;
-            break;
-        default:
-            break;
-    }
-}
-
-void carTurnLeft()
-{
-    switch (carState)
-    {
-        case TURNR:
-            //writeMsgToHm10(commandGoto0);
-            carState = STRAIGHT;
-            break;
-        case STRAIGHT:
-            //writeMsgToHm10(commandTurnL);
-            carState = TURNL;
-            break;
-        default:
-            break;
-    }
-}
-
-void carBackUpFromWallAndTurn()
-{
-    carTurnLeft();
-    delay(100);
-    carBackUp();
-    // delay(100);
-    // carTurnRight();
-    // delay(500);
-    // carGoForward();
-}
+// void carBackUpFromWallAndTurn()
+// {
+//     //carTurnLeft();
+//     //delay(100);
+//     //carBackUp();
+//     // delay(100);
+//     // carTurnRight();
+//     // delay(500);
+//     // carGoForward();
+// }
 
 float getDistanceFromSensor()
 {
@@ -130,28 +55,31 @@ void handleHc05()
             switch (carCommand)
             {
                 case 0x01:
-                    carGoForward();
+                    car.driveForward();
                     break;
                 case 0x02:
-                    carGoBack();
+                    car.driveBack();
                     break;
                 case 0x03:
-                    carBackUpFromWallAndTurn();
+                    //carBackUpFromWallAndTurn();
                     break;
                 case 0x04:
                     Serial.println(getDistanceFromSensor());
                     break;
-                case 0x10:
-                    carTurnLeft();
+                case 0x14:
+                    car.turnL();
                     break;
-                case 0x11:
-                    carTurnRight();
+                case 0x15:
+                    car.turn0();
+                    break;
+                case 0x16:
+                    car.turnR();
                     break;
                 case 0xFF:
-                    carTurnOff();
+                    car.switchOff();
                     break;
                 case 0x00:
-                    carStop();
+                    car.stop();
                     break;                
                 default:
                     break;
@@ -172,9 +100,8 @@ void handleHc05()
 
 void setup()
 {
-    Serial.begin(115200);
-    // hm10HubBt.begin(115200); // hm10
-    hm10.init();
+    Serial.begin(115200); // Serial for PC communication
+    car.initHm10(); // hm10
     hc05PhoneBt.begin(9600); // hc05
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, LOW);
@@ -205,7 +132,7 @@ void setup()
         // TODO: Add checking if virtual port is already defined
         delay(500);
     }
-    carState = STRAIGHT;
+    //carState = STRAIGHT;
     digitalWrite(ledPin, HIGH);
     Serial.println("Setup done");
 }
@@ -213,8 +140,7 @@ void setup()
 void loop()
 {
     handleHc05();
-    hm10.checkAndRead();
-    car._hm10.checkAndSend();
+    car.loopHm10();
 
     // Ultrasonic sensor
 

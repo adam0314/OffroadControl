@@ -1,12 +1,12 @@
-#include "hubMessages.hpp"
+#include "hubMsg.hpp"
 
-HubMessage::HubMessage(MessageType messageType, byte command, byte length)
+HubMsg::HubMsg(MsgType messageType, byte command, byte length)
     : _messageType(messageType), _command(command), _length(length)
 {
 
 }
 
-byte HubMessage::parseIntoBuf(byte* buffer)
+byte HubMsg::parseIntoBuf(byte* buffer)
 {
     buffer[0] = _length;
     buffer[1] = 0;
@@ -14,12 +14,12 @@ byte HubMessage::parseIntoBuf(byte* buffer)
     return _length;
 }
 
-HubMessageMotorStartSpeed::HubMessageMotorStartSpeed() : HubMessage(MOTOR_START_SPEED, 0x81, 9)
+HubMsgMotorStartSpeed::HubMsgMotorStartSpeed() : HubMsg(MOTOR_START_SPEED, 0x81, 9)
 {
     _subCommand = 0x07;
 }
 
-HubMessageMotorStartSpeed::HubMessageMotorStartSpeed(byte speed) : HubMessage(MOTOR_START_SPEED, 0x81, 9)
+HubMsgMotorStartSpeed::HubMsgMotorStartSpeed(byte speed) : HubMsg(MOTOR_START_SPEED, 0x81, 9)
 {
     _portId = 0x10;
     _startComplInfo = 0x00;
@@ -30,8 +30,8 @@ HubMessageMotorStartSpeed::HubMessageMotorStartSpeed(byte speed) : HubMessage(MO
     _subCommand = 0x07;
 }
 
-HubMessageMotorStartSpeed::HubMessageMotorStartSpeed(byte speed, uint16_t time)
-    : HubMessage(MOTOR_START_SPEED_FOR_TIME, 0x81, 12), _time(time)
+HubMsgMotorStartSpeed::HubMsgMotorStartSpeed(byte speed, uint16_t time)
+    : HubMsg(MOTOR_START_SPEED_FOR_TIME, 0x81, 12), _time(time)
 {
     _portId = 0x10;
     _startComplInfo = 0x11;
@@ -41,15 +41,15 @@ HubMessageMotorStartSpeed::HubMessageMotorStartSpeed(byte speed, uint16_t time)
     _subCommand = 0x09;
 }
 
-HubMessageMotorStartSpeed::HubMessageMotorStartSpeed(
+HubMsgMotorStartSpeed::HubMsgMotorStartSpeed(
     byte portId, byte startComplInfo, byte speed, byte maxPower, byte useProfile)
-    : HubMessage(MOTOR_START_SPEED, 0x81, 9),
+    : HubMsg(MOTOR_START_SPEED, 0x81, 9),
     _portId(portId), _startComplInfo(startComplInfo), _speed(speed * -1), _maxPower(maxPower), _useProfile(useProfile)
 {
     _subCommand = 0x07;
 }
 
-byte HubMessageMotorStartSpeed::parseIntoBuf(byte* buffer)
+byte HubMsgMotorStartSpeed::parseIntoBuf(byte* buffer)
 {
     buffer[3] = _portId;
     buffer[4] = _startComplInfo;
@@ -70,35 +70,35 @@ byte HubMessageMotorStartSpeed::parseIntoBuf(byte* buffer)
         buffer[11] = _useProfile;
     }
     
-    return HubMessage::parseIntoBuf(buffer);
+    return HubMsg::parseIntoBuf(buffer);
 }
 
-HubMessageMotorStop::HubMessageMotorStop() : HubMessage(MOTOR_STOP, 0x81, 8)
+HubMsgMotorStop::HubMsgMotorStop() : HubMsg(MOTOR_STOP, 0x81, 8)
 {
     _portId = 0x10;
     _startComplInfo = 0x10;
     _subCommand = 0x51;
 }
 
-HubMessageMotorStop::HubMessageMotorStop(
+HubMsgMotorStop::HubMsgMotorStop(
     byte portId, byte startComplInfo)
-    : HubMessage(MOTOR_STOP, 0x81, 8),
+    : HubMsg(MOTOR_STOP, 0x81, 8),
     _portId(portId), _startComplInfo(startComplInfo)
 {
     _subCommand = 0x51;
 }
 
-byte HubMessageMotorStop::parseIntoBuf(byte* buffer)
+byte HubMsgMotorStop::parseIntoBuf(byte* buffer)
 {
     buffer[3] = _portId;
     buffer[4] = _startComplInfo;
     buffer[5] = _subCommand;
     buffer[6] = 0x00;
     buffer[7] = 0x00;
-    return HubMessage::parseIntoBuf(buffer);
+    return HubMsg::parseIntoBuf(buffer);
 }
 
-HubMessageMotorGotoAbs::HubMessageMotorGotoAbs() : HubMessage(MOTOR_GOTO_ABS, 0x81, 14)
+HubMsgMotorGotoAbs::HubMsgMotorGotoAbs() : HubMsg(MOTOR_GOTO_ABS, 0x81, 14)
 {
     _portId = 0x02;
     _startComplInfo = 0x10;
@@ -110,7 +110,7 @@ HubMessageMotorGotoAbs::HubMessageMotorGotoAbs() : HubMessage(MOTOR_GOTO_ABS, 0x
     _useProfile = 0x00;
 }
 
-byte HubMessageMotorGotoAbs::parseIntoBuf(byte* buffer)
+byte HubMsgMotorGotoAbs::parseIntoBuf(byte* buffer)
 {
     buffer[3] = _portId;
     buffer[4] = _startComplInfo;
@@ -124,28 +124,28 @@ byte HubMessageMotorGotoAbs::parseIntoBuf(byte* buffer)
     buffer[12] = _endState;
     buffer[13] = _useProfile;
 
-    return HubMessage::parseIntoBuf(buffer);
+    return HubMsg::parseIntoBuf(buffer);
 }
 
-HubMessageMotorStartDeg::HubMessageMotorStartDeg() : HubMessage(MOTOR_START_DEG, 0x81, 14)
+HubMsgMotorStartDeg::HubMsgMotorStartDeg() : HubMsg(MOTOR_START_DEG, 0x81, 14)
 {
     _portId = 0x02;
-    _startComplInfo = 0x10;
+    _startComplInfo = 0x00;
     _subCommand = 0x0B;
     _deg = 0;
     _speed = 0;
     _maxPower = 0x50;
-    _endState = 0x7E;
+    _endState = 0x00; // 0x00 FLOAT (no power) 0x7E HOLD (Supplying power) 0x7F BRAKE (short motor)
     _useProfile = 0;
 }
 
-HubMessageMotorStartDeg::HubMessageMotorStartDeg(int32_t deg, byte speed) : HubMessageMotorStartDeg()
+HubMsgMotorStartDeg::HubMsgMotorStartDeg(int32_t deg, byte speed) : HubMsgMotorStartDeg()
 {
     _deg = deg;
     _speed = speed;
 }
 
-byte HubMessageMotorStartDeg::parseIntoBuf(byte* buffer)
+byte HubMsgMotorStartDeg::parseIntoBuf(byte* buffer)
 {
     buffer[3] = _portId;
     buffer[4] = _startComplInfo;
@@ -159,5 +159,22 @@ byte HubMessageMotorStartDeg::parseIntoBuf(byte* buffer)
     buffer[12] = _endState;
     buffer[13] = _useProfile;
 
-    return HubMessage::parseIntoBuf(buffer);
+    return HubMsg::parseIntoBuf(buffer);
+}
+
+HubMsgHubAction::HubMsgHubAction() : HubMsg(HUB_ACTION, 0x02, 4)
+{
+    
+}
+
+HubMsgHubAction::HubMsgHubAction(byte actionType) : HubMsgHubAction()
+{
+    _actionType = actionType;
+}
+
+byte HubMsgHubAction::parseIntoBuf(byte* buffer)
+{
+    buffer[3] = _actionType;
+
+    return HubMsg::parseIntoBuf(buffer);
 }

@@ -1,4 +1,4 @@
-#include "hm10HubBt.hpp"
+#include "hm10.hpp"
 
 void Hm10::init(unsigned long baudRate)
 {
@@ -39,7 +39,7 @@ void Hm10::checkAndSend()
     }
 }
 
-void Hm10::msgOutEnqueue(std::shared_ptr<HubMessage> msg)
+void Hm10::msgOutEnqueue(std::shared_ptr<HubMsg> msg)
 {
     _msgOut.push(msg);
 }

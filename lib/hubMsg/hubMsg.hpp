@@ -2,31 +2,31 @@
 #define hubMessages_hpp
 #include <arduino.h>
 
-enum MessageType
+enum MsgType
 {
     MOTOR_START_SPEED,
     MOTOR_START_SPEED_FOR_TIME,
     MOTOR_GOTO_ABS,
     MOTOR_STOP,
     MOTOR_START_DEG,
-    HUB_TURN_OFF,
+    HUB_ACTION,
     PORT_SYNC
 };
 
-class HubMessage
+class HubMsg
 {
     protected:
-        MessageType _messageType;
+        MsgType _messageType;
         byte _command;
         byte _length;
-        HubMessage();
-        HubMessage(MessageType, byte, byte);
+        HubMsg();
+        HubMsg(MsgType, byte, byte);
     public:
         virtual byte parseIntoBuf(byte*); //returns message length
-        virtual ~HubMessage() = default;
+        virtual ~HubMsg() = default;
 };
 
-class HubMessageMotorStartSpeed : public HubMessage
+class HubMsgMotorStartSpeed : public HubMsg
 {
     private:
         byte _portId;
@@ -37,26 +37,26 @@ class HubMessageMotorStartSpeed : public HubMessage
         byte _maxPower;
         byte _useProfile;
     public:
-        HubMessageMotorStartSpeed();
-        HubMessageMotorStartSpeed(byte);
-        HubMessageMotorStartSpeed(byte, uint16_t);
-        HubMessageMotorStartSpeed(byte, byte, byte, byte, byte);
+        HubMsgMotorStartSpeed();
+        HubMsgMotorStartSpeed(byte);
+        HubMsgMotorStartSpeed(byte, uint16_t);
+        HubMsgMotorStartSpeed(byte, byte, byte, byte, byte);
         byte parseIntoBuf(byte*);
 };
 
-class HubMessageMotorStop : public HubMessage
+class HubMsgMotorStop : public HubMsg
 {
     private:
         byte _portId;
         byte _startComplInfo;
         byte _subCommand;
     public:
-        HubMessageMotorStop();
-        HubMessageMotorStop(byte, byte);
+        HubMsgMotorStop();
+        HubMsgMotorStop(byte, byte);
         byte parseIntoBuf(byte*);
 };
 
-class HubMessageMotorGotoAbs : public HubMessage
+class HubMsgMotorGotoAbs : public HubMsg
 {
     private:
         byte _portId;
@@ -68,11 +68,11 @@ class HubMessageMotorGotoAbs : public HubMessage
         byte _endState;
         byte _useProfile;
     public:
-        HubMessageMotorGotoAbs();
+        HubMsgMotorGotoAbs();
         byte parseIntoBuf(byte*);
 };
 
-class HubMessageMotorStartDeg : public HubMessage
+class HubMsgMotorStartDeg : public HubMsg
 {
     private:
         byte _portId;
@@ -84,8 +84,18 @@ class HubMessageMotorStartDeg : public HubMessage
         byte _endState;
         byte _useProfile;
     public:
-        HubMessageMotorStartDeg();
-        HubMessageMotorStartDeg(int32_t, byte);
+        HubMsgMotorStartDeg();
+        HubMsgMotorStartDeg(int32_t, byte);
+        byte parseIntoBuf(byte*);
+};
+
+class HubMsgHubAction : public HubMsg
+{
+    private:
+        byte _actionType;
+    public:
+        HubMsgHubAction();
+        HubMsgHubAction(byte);
         byte parseIntoBuf(byte*);
 };
 
