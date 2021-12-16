@@ -2,7 +2,14 @@
 
 Car::Car()
 {
+    
+}
+
+void Car::init()
+{
+    initHm10();
     _msgSwitchOff = std::make_shared<HubMsgHubAction>(1);
+    _msgStop = std::make_shared<HubMsgMotorStop>();
     _msgForward100 = std::make_shared<HubMsgMotorStartSpeed>(100);
     _msgBack100 = std::make_shared<HubMsgMotorStartSpeed>(-100);
     _msgTurnR = std::make_shared<HubMsgMotorStartDeg>(75, 30);

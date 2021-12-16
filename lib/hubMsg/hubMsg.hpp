@@ -26,12 +26,21 @@ class HubMsg
         virtual ~HubMsg() = default;
 };
 
-class HubMsgMotorStartSpeed : public HubMsg
+class HubMsgMotor : public HubMsg
 {
-    private:
+    protected:
         byte _portId;
         byte _startComplInfo;
         byte _subCommand;
+    public:
+        HubMsgMotor(MsgType, byte, byte, byte, byte, byte);
+        virtual byte parseIntoBuf(byte*);
+        void withFeedback();
+};
+
+class HubMsgMotorStartSpeed : public HubMsgMotor
+{
+    private:
         byte _speed;
         uint16_t _time;
         byte _maxPower;
@@ -44,24 +53,17 @@ class HubMsgMotorStartSpeed : public HubMsg
         byte parseIntoBuf(byte*);
 };
 
-class HubMsgMotorStop : public HubMsg
+class HubMsgMotorStop : public HubMsgMotor
 {
-    private:
-        byte _portId;
-        byte _startComplInfo;
-        byte _subCommand;
     public:
         HubMsgMotorStop();
         HubMsgMotorStop(byte, byte);
         byte parseIntoBuf(byte*);
 };
 
-class HubMsgMotorGotoAbs : public HubMsg
+class HubMsgMotorGotoAbs : public HubMsgMotor
 {
     private:
-        byte _portId;
-        byte _startComplInfo;
-        byte _subCommand;
         int32_t _absPos;
         byte _speed;
         byte _maxPower;
@@ -72,12 +74,9 @@ class HubMsgMotorGotoAbs : public HubMsg
         byte parseIntoBuf(byte*);
 };
 
-class HubMsgMotorStartDeg : public HubMsg
+class HubMsgMotorStartDeg : public HubMsgMotor
 {
     private:
-        byte _portId;
-        byte _startComplInfo;
-        byte _subCommand;
         int32_t _deg;
         byte _speed;
         byte _maxPower;

@@ -101,7 +101,7 @@ void handleHc05()
 void setup()
 {
     Serial.begin(115200); // Serial for PC communication
-    car.initHm10(); // hm10
+    car.init(); // also inits hm10 at 115200 baud
     hc05PhoneBt.begin(9600); // hc05
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, LOW);
