@@ -20,9 +20,14 @@ HubMsgMotor::HubMsgMotor(MsgType messageType, byte command, byte length, byte po
 
 }
 
-void HubMsgMotor::withFeedback()
+void HubMsgMotor::useFeedback()
 {
     _startComplInfo = _startComplInfo || 0x01;
+}
+
+void HubMsgMotor::useExecuteImmediately()
+{
+    _startComplInfo = _startComplInfo || 0x10;
 }
 
 byte HubMsgMotor::parseIntoBuf(byte* buffer)
@@ -172,4 +177,81 @@ byte HubMsgHubAction::parseIntoBuf(byte* buffer)
     buffer[3] = _actionType;
 
     return HubMsg::parseIntoBuf(buffer);
+}
+
+HubMsgVirtualPortSetup::HubMsgVirtualPortSetup(bool connect) : HubMsg(PORT_SYNC, 0x61, connect ? 6 : 5), _connect(connect)
+{
+
+}
+
+HubMsgVirtualPortSetup::HubMsgVirtualPortSetup(bool connect, byte portIdA, byte portIdB)
+: HubMsg(PORT_SYNC, 0x61, connect ? 6 : 5), _connect(connect), _portIdA(portIdA), _portIdB(portIdB)
+{
+
+}
+
+byte HubMsgVirtualPortSetup::parseIntoBuf(byte* buffer)
+{
+    buffer[3] = (_connect ? 0x01 : 0x00);
+    buffer[4] = _portIdA;
+    if (_connect)
+    {
+        buffer[5] = _portIdB;
+    }
+
+    return HubMsg::parseIntoBuf(buffer);    
+}
+
+HubMsgPortInputFormat::HubMsgPortInputFormat() : HubMsg(PORT_INPUT_FORMAT, 0x41, 10)
+{
+
+}
+
+HubMsgPortInputFormat::HubMsgPortInputFormat(byte portId, byte mode, uint32_t delta, bool enableNotification)
+: HubMsg(PORT_INPUT_FORMAT, 0x41, 10), _portId(portId), _mode(mode), _delta(delta), _enableNotification(enableNotification)
+{
+
+}
+
+byte HubMsgPortInputFormat::parseIntoBuf(byte* buffer)
+{
+    buffer[3] = _portId;
+    buffer[4] = _mode;
+    buffer[5] = _delta & 0xFF;
+    buffer[6] = (_delta >> 8) & 0xFF;
+    buffer[7] = (_delta >> 16) & 0xFF;
+    buffer[8] = (_delta >> 24) & 0xFF;
+    buffer[9] = (_enableNotification ? 0x01 : 0x00);
+
+    return HubMsg::parseIntoBuf(buffer);
+}
+
+// IN
+
+HubMsgMotorFeedback::HubMsgMotorFeedback(byte* buffer)
+{
+    parseFromBuf(buffer);
+}
+
+void HubMsgMotorFeedback::parseFromBuf(byte* buffer)
+{
+    _length = buffer[0];
+    _command = buffer[2];
+    _portId = buffer[3];
+    _feedbackBitfields = buffer[4];
+}
+
+byte HubMsgMotorFeedback::getPortId()
+{
+    return _portId;
+}
+
+bool HubMsgMotorFeedback::isIdle()
+{
+    return _feedbackBitfields && 0x08;
+}
+
+bool HubMsgMotorFeedback::isEmptyAndCompleted()
+{
+    return _feedbackBitfields && 0x02;
 }

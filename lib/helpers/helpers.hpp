@@ -4,7 +4,7 @@
 
 namespace helpers
 {
-    void printHex8(uint8_t*, uint8_t);
+    void printHex8(uint8_t*, uint8_t, bool = false);
     void printHex8(uint8_t);
 } // namespace helpers
 

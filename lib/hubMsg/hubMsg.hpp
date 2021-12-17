@@ -4,13 +4,17 @@
 
 enum MsgType
 {
+    // OUT
     MOTOR_START_SPEED,
     MOTOR_START_SPEED_FOR_TIME,
     MOTOR_GOTO_ABS,
     MOTOR_STOP,
     MOTOR_START_DEG,
     HUB_ACTION,
-    PORT_SYNC
+    PORT_SYNC,
+    PORT_INPUT_FORMAT,
+    // IN
+    MOTOR_FEEDBACK
 };
 
 class HubMsg
@@ -26,6 +30,8 @@ class HubMsg
         virtual ~HubMsg() = default;
 };
 
+// OUTBOUND
+
 class HubMsgMotor : public HubMsg
 {
     protected:
@@ -35,7 +41,8 @@ class HubMsgMotor : public HubMsg
     public:
         HubMsgMotor(MsgType, byte, byte, byte, byte, byte);
         virtual byte parseIntoBuf(byte*);
-        void withFeedback();
+        void useFeedback();
+        void useExecuteImmediately();
 };
 
 class HubMsgMotorStartSpeed : public HubMsgMotor
@@ -96,6 +103,46 @@ class HubMsgHubAction : public HubMsg
         HubMsgHubAction();
         HubMsgHubAction(byte);
         byte parseIntoBuf(byte*);
+};
+
+class HubMsgVirtualPortSetup : public HubMsg
+{
+    private:
+        bool _connect;
+        byte _portIdA;
+        byte _portIdB;
+    public:
+        HubMsgVirtualPortSetup(bool = true);
+        HubMsgVirtualPortSetup(bool, byte, byte = 0);
+        byte parseIntoBuf(byte*);
+};
+
+class HubMsgPortInputFormat : public HubMsg
+{
+    private:
+        byte _portId;
+        byte _mode; // 0x03: APOS (abs. position)
+        uint32_t _delta;
+        bool _enableNotification;
+    public:
+        HubMsgPortInputFormat();
+        HubMsgPortInputFormat(byte, byte, uint32_t, bool);
+        byte parseIntoBuf(byte*);
+};
+
+// INBOUND
+
+class HubMsgMotorFeedback : public HubMsgMotorStartDeg
+{
+    private:
+        byte _portId;
+        byte _feedbackBitfields;
+    public:
+        HubMsgMotorFeedback(byte*);
+        void parseFromBuf(byte*);
+        byte getPortId();
+        bool isIdle();
+        bool isEmptyAndCompleted();
 };
 
 #endif

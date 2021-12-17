@@ -117,22 +117,14 @@ void setup()
             delay(3000);
         }
         Serial.println("LEGO connected");
-
-        // Assuming virtual port is not assigned
-
-        byte command[6] = {0x06, 0x00, 0x61, 0x01, 0x00, 0x01};
-        hm10HubBt.write(command, sizeof(command));
-        delay(500);
     }
     else //TODO: Change this into commands and set some acknowledgment from LEGO
     {
         Serial.println("LEGO already connected");
-        byte command[6] = {0x06, 0x00, 0x61, 0x01, 0x00, 0x01};
-        hm10HubBt.write(command, sizeof(command));
-        // TODO: Add checking if virtual port is already defined
-        delay(500);
     }
-    //carState = STRAIGHT;
+
+    car.syncPorts();
+    car.calibrateTurning();
     digitalWrite(ledPin, HIGH);
     Serial.println("Setup done");
 }

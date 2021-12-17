@@ -2,7 +2,7 @@
 
 namespace helpers
 {
-    void printHex8(uint8_t *data, uint8_t length) // prints 8-bit data in hex with leading zeroes and a newline
+    void printHex8(uint8_t *data, uint8_t length, bool withNewline) // prints 8-bit data in hex with leading zeroes and a newline
     {
         char tmp[16];
         for (int i = 0; i < length; i++)
@@ -11,7 +11,10 @@ namespace helpers
             Serial.print(tmp);
             Serial.print(" ");
         }
-        Serial.println();
+        if (withNewline)
+        {
+            Serial.println();
+        }
     }
 
     void printHex8(uint8_t data) // prints 8-bit data in hex with leading zeroes
